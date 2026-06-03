@@ -1,75 +1,29 @@
-/* Prathibha High School LMS - Role-Based Authentication Layer */
-
 const SESSION_KEY = "prathibha_session";
 
 const auth = {
-  // Login method supporting three roles: Principal, Teacher, Student
-  login(email, password) {
-    email = email.toLowerCase().trim();
-    
-    // 1. Check Principal (Static Admin)
-    if (email === "principal@prathibha.com" && password === "admin123") {
-      const session = {
-        token: "mock-jwt-principal-" + Date.now(),
-        user: {
-          id: "principal",
-          name: "Dr. K. S. Rao (Principal)",
-          email: "principal@prathibha.com",
-          role: "principal"
-        }
-      };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      return { success: true, user: session.user };
-    }
-
-    // 2. Check Teachers Collection in Database
-    const teacher = window.db.teachers.findOne({ email: email, password: password });
-    if (teacher) {
-      if (teacher.status !== "Active") {
-        return { success: false, message: "Your teacher account is deactivated. Please contact the Principal." };
+  async login(email, password) {
+    try {
+      const res = await fetch("https://prathibha-lms-backend.onrender.com/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ user: data.user }));
+        return { success: true, user: data.user };
       }
-      const session = {
-        token: "mock-jwt-teacher-" + teacher.id + "-" + Date.now(),
-        user: {
-          id: teacher.id,
-          name: teacher.name,
-          email: teacher.email,
-          role: "teacher",
-          assignedClasses: teacher.assignedClasses,
-          assignedSubjects: teacher.assignedSubjects
-        }
-      };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      return { success: true, user: session.user };
+      return { success: false, message: data.detail || "Invalid email or password" };
+    } catch (e) {
+      return { success: false, message: "Cannot connect to server. Please try again." };
     }
-
-    // 3. Check Students Collection in Database
-    const student = window.db.students.findOne({ email: email, password: password });
-    if (student) {
-      const session = {
-        token: "mock-jwt-student-" + student.id + "-" + Date.now(),
-        user: {
-          id: student.id,
-          name: student.name,
-          email: student.email,
-          role: "student",
-          classNum: student.classNum
-        }
-      };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      return { success: true, user: session.user };
-    }
-
-    return { success: false, message: "Invalid email or password. Please try again." };
   },
 
-  // Logout method
   logout() {
     localStorage.removeItem(SESSION_KEY);
     return true;
   },
 
-  // Get active user details
   getCurrentUser() {
     const sessionData = localStorage.getItem(SESSION_KEY);
     if (!sessionData) return null;
@@ -82,7 +36,6 @@ const auth = {
     }
   },
 
-  // Helper validation checks
   isAuthenticated() {
     return this.getCurrentUser() !== null;
   },
@@ -103,5 +56,4 @@ const auth = {
   }
 };
 
-// Export to window for global access
 window.auth = auth;
